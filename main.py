@@ -1,13 +1,15 @@
 from file_mover import FileMoverHandler
+from DataBaseHandler import DatabaseHandler
 import time
 import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 class Main:
-    def __init__(self, source_folder, dest_folder):
+    def __init__(self, source_folder, dest_folder, dbConnectionString):
         self.source_folder = source_folder
         self.dest_folder = dest_folder
+        self.dbHandler = DatabaseHandler(dbConnectionString)
         self.file_mover = FileMoverHandler(self.source_folder, self.dest_folder)
 
     def move_existing_files(self):
@@ -40,6 +42,13 @@ class Main:
 if __name__ == "__main__":
     source_folder = "C:\\Users\\User\\Desktop\\baseFiles"  
     dest_folder = "C:\\Users\\User\\Desktop\\movingFiles"
+    dbConnectionString = (
+        "DRIVER={ODBC Driver 17 for SQL Server};"
+        "SERVER=DESARROLLOSOLUC\MSSQLSERVER01;"
+        "DATABASE=FileMoverDB;"
+        "UID=dbFileMover;"
+        "PWD=M0nt0l1v0.123*;"
+    )
     
-    main_program = Main(source_folder, dest_folder)
+    main_program = Main(source_folder, dest_folder, dbConnectionString)
     main_program.start_monitoring()

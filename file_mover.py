@@ -1,9 +1,10 @@
 import shutil
 import hashlib
 import paramiko
+import time
 
 class FileMoverHandler:
-    def __init__(self, source_folder, dest_folder):
+    def __init__(self, source_folder, dest_folder, dbHandler):
         """
         Constructor de la clase. Inicializa las carpetas de origen y destino.
         :param source_folder: Ruta de la carpeta origen.
@@ -11,6 +12,7 @@ class FileMoverHandler:
         """
         self.source_folder = source_folder
         self.dest_folder = dest_folder
+        self.dbHandler = dbHandler
         self.processed_files = set()  # Conjunto para almacenar los archivos procesados (por hash)
 
     def on_created(self, event):
@@ -21,21 +23,9 @@ class FileMoverHandler:
         print(f"Evento de archivo creado detectado: {event.src_path}") 
         if event.is_directory or not event.src_path.endswith('.xml'):
             return  # Ignorar directorios o archivos que no son .xml
-
-        if not self.is_processed(event.src_path):
-            self.move_file(event.src_path)
-
-    def is_processed(self, file_path):
-        """
-        Verifica si el archivo ya ha sido procesado utilizando su hash.
-        :param file_path: Ruta del archivo a verificar.
-        :return: True si el archivo ya ha sido procesado, False de lo contrario.
-        """
-        file_hash = self.get_file_hash(file_path)
-        if file_hash in self.processed_files:
-            return True
-        self.processed_files.add(file_hash)
-        return False
+        file_hash = self.get_file_hash(event.src_path)
+        if not self.dbHandler.is_file_processed(file_hash):
+            self.move_file(event.src_path, file_hash)
 
     def get_file_hash(self, file_path):
         """
@@ -43,13 +33,20 @@ class FileMoverHandler:
         :param file_path: Ruta del archivo a procesar.
         :return: El hash MD5 del archivo.
         """
-        hash_md5 = hashlib.md5()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        return hash_md5.hexdigest()
+        for _ in range(3):  # Intentar 3 veces
+            try:
+                with open(file_path, "rb") as f:
+                    hasher = hashlib.md5()
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        hasher.update(chunk)
+                    return hasher.hexdigest()
+            except PermissionError:
+                print(f"Archivo bloqueado: {file_path}. Reintentando...")
+                time.sleep(3)
+        print(f"No se pudo acceder al archivo: {file_path}")
+        return None
 
-    def move_file(self, file_path):
+    def move_file(self, file_path, file_hash):
         """
         Copia el archivo desde la carpeta de origen a la carpeta de destino.
         :param file_path: Ruta del archivo a mover.
@@ -57,6 +54,8 @@ class FileMoverHandler:
         try:
             print(f"Intentando mover el archivo: {file_path}")
             shutil.copy(file_path, self.dest_folder)
+            file_name = file_path.split("\\")[-1]
+            self.dbHandler.save_processed_file(file_hash, file_name)
             print(f"Archivo '{file_path}' movido correctamente a {self.dest_folder}.")
         except Exception as e:
             print(f"Error al mover el archivo '{file_path}': {e}")

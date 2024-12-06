@@ -32,6 +32,7 @@ class DatabaseHandler:
 
     def save_processed_file(self, file_hash, file_name):
         """Registra un archivo como procesado en la base de datos."""
+        print(f"Intentando guardar archivo con hash: {file_hash} y nombre: {file_name}")
         query = "INSERT INTO ProcessedFiles (FileHash, FileName) VALUES (?, ?)"
         try:
             cursor = self.connection.cursor()

@@ -10,7 +10,7 @@ class Main:
         self.source_folder = source_folder
         self.dest_folder = dest_folder
         self.dbHandler = DatabaseHandler(dbConnectionString)
-        self.file_mover = FileMoverHandler(self.source_folder, self.dest_folder)
+        self.file_mover = FileMoverHandler(self.source_folder, self.dest_folder, self.dbHandler)
 
     def move_existing_files(self):
         print(f"Verificando archivos existentes en {self.source_folder}...")
@@ -18,9 +18,12 @@ class Main:
             file_path = os.path.join(self.source_folder, file_name)
             if os.path.isfile(file_path) and file_path.endswith('.xml'):
                 print(f"Moviendo archivo existente: {file_path}")
-                self.file_mover.move_file(file_path)
+                file_hash = self.file_mover.get_file_hash(file_path)
+                if not self.dbHandler.is_file_processed(file_hash):
+                    self.file_mover.move_file(file_path, file_hash)               
 
     def start_monitoring(self):
+
         self.move_existing_files()
 
         event_handler = FileSystemEventHandler()
@@ -44,10 +47,10 @@ if __name__ == "__main__":
     dest_folder = "C:\\Users\\User\\Desktop\\movingFiles"
     dbConnectionString = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=DESARROLLOSOLUC\MSSQLSERVER01;"
+        "SERVER=DESARROLLOSOLUC\\MSSQLSERVER01;"
         "DATABASE=FileMoverDB;"
         "UID=dbFileMover;"
-        "PWD=M0nt0l1v0.123*;"
+        "PWD=M0nt0l1v0.12*;"
     )
     
     main_program = Main(source_folder, dest_folder, dbConnectionString)

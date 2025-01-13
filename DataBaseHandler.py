@@ -1,43 +1,64 @@
 import pyodbc
+import datetime
+import os
+import zipfile
 
 class DatabaseHandler:
-    def __init__(self, connection_string):
-        """
-        Inicializa la conexión con SQL Server.
-        :param connection_string: Cadena de conexión a SQL Server.
-        """
-        self.connection_string = connection_string
-        self.connection = self.connect_to_db()
+    def _init_(self, sql_server, db_name, sql_user, sql_password, backup_path, compression_path):
+        self.sql_server = sql_server
+        self.db_name = db_name
+        self.sql_user = sql_user
+        self.sql_password = sql_password
+        self.backup_path = backup_path
+        self.compression_path = compression_path
 
-    def connect_to_db(self):
-        """Conecta a la base de datos SQL Server."""
+    def generar_respaldo(self):
+        """Genera un respaldo de la base de datos."""
         try:
-            conn = pyodbc.connect(self.connection_string)
-            print("Conexión a SQL Server establecida.")
-            return conn
+            print("Conectando al servidor SQL...")
+            conexion = pyodbc.connect(
+                f"DRIVER={{SQL Server}};SERVER={self.sql_server};UID={self.sql_user};PWD={self.sql_password}"
+            )
+            conexion.autocommit = True
+            cursor = conexion.cursor()
+
+            os.makedirs(self.backup_path, exist_ok=True)
+            fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
+            archivo_respaldo = os.path.join(self.backup_path, f"{self.db_name}_{fecha_actual}.bak")
+            print(f"Generando respaldo en: {archivo_respaldo}")
+
+            comando = f"""
+            BACKUP DATABASE [{self.db_name}]
+            TO DISK = '{archivo_respaldo}'
+            WITH FORMAT, INIT,
+            NAME = 'Respaldo Diario {fecha_actual}',
+            STATS = 10;
+            """
+            cursor.execute(comando)
+            print("Respaldo generado exitosamente.")
+            return archivo_respaldo
         except Exception as e:
-            print(f"Error al conectar a SQL Server: {e}")
+            print(f"Error al generar respaldo: {e}")
             return None
+        finally:
+            try:
+                cursor.close()
+                conexion.close()
+            except Exception:
+                pass
 
-    def is_file_processed(self, file_hash):
-        """Verifica si el archivo ya fue procesado usando su hash."""
-        query = "SELECT COUNT(*) FROM ProcessedFiles WHERE FileHash = ?"
+    def comprimir_respaldo(self, ruta_respaldo):
+        """Comprime el archivo de respaldo."""
         try:
-            cursor = self.connection.cursor()
-            cursor.execute(query, (file_hash,))
-            return cursor.fetchone()[0] > 0
-        except Exception as e:
-            print(f"Error al consultar el archivo procesado: {e}")
-            return False
+            os.makedirs(self.compression_path, exist_ok=True)
+            fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
+            archivo_comprimido = os.path.join(self.compression_path, f"{self.db_name}_{fecha_actual}.zip")
+            print(f"Comprimiendo archivo: {ruta_respaldo}")
 
-    def save_processed_file(self, file_hash, file_name):
-        """Registra un archivo como procesado en la base de datos."""
-        print(f"Intentando guardar archivo con hash: {file_hash} y nombre: {file_name}")
-        query = "INSERT INTO ProcessedFiles (FileHash, FileName) VALUES (?, ?)"
-        try:
-            cursor = self.connection.cursor()
-            cursor.execute(query, (file_hash, file_name))
-            self.connection.commit()
-            print(f"Archivo registrado en la base de datos: {file_name}")
+            with zipfile.ZipFile(archivo_comprimido, 'w') as zipf:
+                zipf.write(ruta_respaldo, os.path.basename(ruta_respaldo))
+            print(f"Archivo comprimido generado: {archivo_comprimido}")
+            return archivo_comprimido
         except Exception as e:
-            print(f"Error al registrar el archivo: {e}")
+            print(f"Error al comprimir archivo: {e}")
+            return None

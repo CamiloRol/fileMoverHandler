@@ -1,27 +1,35 @@
+import os
+import zipfile
 import shutil
 
-class FileMoverHandler:
-    def __init__(self, source_folder, dest_folder, dbHandler):
-        """
-        Constructor de la clase. Inicializa las carpetas de origen y destino.
-        :param source_folder: Ruta de la carpeta origen.
-        :param dest_folder: Ruta de la carpeta destino.
-        """
-        self.source_folder = source_folder
-        self.dest_folder = "dest_folder"
-        self.dbHandler = dbHandler
-        self.processed_files = set()  # Conjunto para almacenar los archivos procesados (por hash)
+class FileMover:
+    def __init__(self, compression_path, final_path):
+        self.compression_path = compression_path
+        self.final_path = final_path
 
-    def move_file(self, file_path, file_hash):
-        """
-        Copia el archivo desde la carpeta de origen a la carpeta de destino.
-        :param file_path: Ruta del archivo a mover.
-        """
+    """def comprimir_respaldo(self, ruta_respaldo):
+        Comprime el archivo de respaldo y lo guarda en la carpeta de compresión.
         try:
-            print(f"Intentando mover el archivo: {file_path}")
-            shutil.copy(file_path, self.dest_folder)
-            file_name = file_path.split("\\")[-1]
-            self.dbHandler.save_processed_file(file_hash, file_name)
-            print(f"Archivo '{file_path}' movido correctamente a {self.dest_folder}.")
+            os.makedirs(self.compression_path, exist_ok=True)
+            nombre_respaldo = os.path.basename(ruta_respaldo)
+            archivo_comprimido = os.path.join(self.compression_path, f"{os.path.splitext(nombre_respaldo)[0]}.zip")
+            print(f"Comprimiendo archivo: {ruta_respaldo}")
+
+            with zipfile.ZipFile(archivo_comprimido, 'w') as zipf:
+                zipf.write(ruta_respaldo, os.path.basename(ruta_respaldo))
+            print(f"Archivo comprimido generado: {archivo_comprimido}")
+            return archivo_comprimido
         except Exception as e:
-            print(f"Error al mover el archivo '{file_path}': {e}")
+            print(f"Error al comprimir archivo: {e}")
+            return None """
+
+    """ def mover_archivo(self, archivo_comprimido):
+        Mueve el archivo comprimido a la carpeta final.
+        try:
+            os.makedirs(self.final_path, exist_ok=True)
+            destino = os.path.join(self.final_path, os.path.basename(archivo_comprimido))
+            print(f"Moviendo archivo: {archivo_comprimido} -> {destino}")
+            shutil.move(archivo_comprimido, destino)
+            print("Archivo movido exitosamente.")
+        except Exception as e:
+            print(f"Error al mover archivo: {e}") """
